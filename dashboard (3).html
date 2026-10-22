@@ -1,0 +1,567 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>GitHub Workspace Dashboard - CoderJ AI</title>
+    <style>
+        :root {
+            --bg-main: #0d1117;
+            --bg-sidebar: #161b22;
+            --border-color: #30363d;
+            --text-main: #c9d1d9;
+            --text-muted: #8b949e;
+            --accent-cyan: #00f0ff;
+            --accent-magenta: #ff007f;
+            --accent-green: #39ff14;
+            --error-red: #ff3333;
+        }
+
+        * {
+            box-sizing: border-box;
+            margin: 0;
+            padding: 0;
+            font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Helvetica, Arial, sans-serif;
+        }
+
+        body {
+            background-color: var(--bg-main);
+            color: var(--text-main);
+            display: flex;
+            flex-direction: column;
+            height: 100vh;
+            overflow: hidden;
+        }
+
+        /* Top Navigation Light Matrix */
+        header {
+            background-color: var(--bg-sidebar);
+            border-bottom: 1px solid var(--border-color);
+            padding: 10px 20px;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            height: 60px;
+        }
+
+        .repo-info {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            font-weight: 600;
+        }
+
+        .repo-badge {
+            background: #21262d;
+            border: 1px solid var(--border-color);
+            padding: 2px 8px;
+            border-radius: 2em;
+            font-size: 12px;
+            color: var(--text-muted);
+        }
+
+        .light-matrix {
+            display: flex;
+            gap: 15px;
+            align-items: center;
+        }
+
+        .light-btn {
+            background: #21262d;
+            border: 1px solid var(--border-color);
+            padding: 6px 12px;
+            border-radius: 6px;
+            cursor: pointer;
+            color: var(--text-main);
+            font-size: 12px;
+            display: flex;
+            align-items: center;
+            gap: 6px;
+            transition: all 0.2s;
+        }
+
+        .light-indicator {
+            width: 8px;
+            height: 8px;
+            border-radius: 50%;
+            background-color: #30363d;
+            display: inline-block;
+        }
+
+        .light-btn[data-light="cyan"].active .light-indicator {
+            background-color: var(--accent-cyan);
+            box-shadow: 0 0 8px var(--accent-cyan);
+        }
+        .light-btn[data-light="magenta"].active .light-indicator {
+            background-color: var(--accent-magenta);
+            box-shadow: 0 0 8px var(--accent-magenta);
+        }
+        .light-btn[data-light="green"].active .light-indicator {
+            background-color: var(--accent-green);
+            box-shadow: 0 0 8px var(--accent-green);
+        }
+
+        /* Main Workspace Container */
+        .workspace {
+            display: flex;
+            flex: 1;
+            height: calc(100vh - 60px);
+            overflow: hidden;
+        }
+
+        /* Left Side: Real Code Sandbox */
+        .editor-container {
+            flex: 1;
+            display: flex;
+            flex-direction: column;
+            border-right: 1px solid var(--border-color);
+            background: #090d13;
+        }
+
+        .editor-toolbar {
+            background: var(--bg-sidebar);
+            padding: 8px 16px;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            border-bottom: 1px solid var(--border-color);
+        }
+
+        .lang-select {
+            background: #21262d;
+            color: var(--text-main);
+            border: 1px solid var(--border-color);
+            padding: 6px 12px;
+            border-radius: 6px;
+            outline: none;
+            cursor: pointer;
+        }
+
+        .action-btns {
+            display: flex;
+            gap: 10px;
+        }
+
+        .btn {
+            padding: 6px 12px;
+            border-radius: 6px;
+            cursor: pointer;
+            font-weight: 500;
+            font-size: 13px;
+            border: 1px solid transparent;
+        }
+
+        .btn-run {
+            background: #238636;
+            color: white;
+        }
+        .btn-run:hover { background: #2ea043; }
+
+        .btn-git {
+            background: #21262d;
+            border-color: var(--border-color);
+            color: var(--text-main);
+        }
+        .btn-git:hover { background: #30363d; }
+
+        /* Multi-layered Smart Textarea Overlay with Live Error Sync */
+        .editor-area-wrapper {
+            flex: 1;
+            position: relative;
+            overflow: hidden;
+        }
+
+        .editor-backdrop, .editor-textarea {
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            font-family: "SFMono-Regular", Consolas, "Liberation Mono", Menlo, monospace;
+            font-size: 14px;
+            line-height: 1.5;
+            padding: 15px;
+            border: none;
+            white-space: pre-wrap;
+            word-wrap: break-word;
+        }
+
+        .editor-textarea {
+            background: transparent;
+            color: var(--text-main);
+            resize: none;
+            outline: none;
+            z-index: 2;
+            caret-color: #ffffff;
+        }
+
+        .editor-backdrop {
+            color: transparent;
+            z-index: 1;
+            pointer-events: none;
+            overflow: hidden;
+        }
+
+        /* Error underlining styling */
+        .syntax-error {
+            text-decoration: underline wavy var(--error-red);
+            font-weight: bold;
+            color: transparent;
+        }
+
+        /* Output Terminal Panel */
+        .terminal-panel {
+            height: 180px;
+            background: #040406;
+            border-top: 1px solid var(--border-color);
+            padding: 12px;
+            font-family: "SFMono-Regular", Consolas, "Liberation Mono", monospace;
+            font-size: 12px;
+            overflow-y: auto;
+            color: #8bc34a;
+        }
+
+        .terminal-header {
+            color: var(--text-muted);
+            margin-bottom: 8px;
+            text-transform: uppercase;
+            font-size: 10px;
+            letter-spacing: 1px;
+            display: flex;
+            justify-content: space-between;
+        }
+
+        /* Right Side: CoderJ AI Companion with Google Search Integration */
+        .sidebar-ai {
+            width: 320px;
+            background: var(--bg-sidebar);
+            display: flex;
+            flex-direction: column;
+        }
+
+        .ai-header {
+            padding: 15px;
+            border-bottom: 1px solid var(--border-color);
+            display: flex;
+            align-items: center;
+            gap: 10px;
+        }
+
+        .ai-avatar {
+            font-size: 24px;
+        }
+
+        .ai-title h3 {
+            font-size: 14px;
+            font-weight: 600;
+        }
+
+        .ai-title p {
+            font-size: 11px;
+            color: var(--accent-green);
+        }
+
+        .ai-chat-history {
+            flex: 1;
+            padding: 15px;
+            overflow-y: auto;
+            display: flex;
+            flex-direction: column;
+            gap: 12px;
+        }
+
+        .chat-bubble {
+            padding: 10px 12px;
+            border-radius: 8px;
+            font-size: 13px;
+            line-height: 1.4;
+            max-width: 90%;
+        }
+
+        .chat-bubble.ai {
+            background: #1f242c;
+            border: 1px solid var(--border-color);
+            color: var(--text-main);
+            align-self: flex-start;
+        }
+
+        .chat-bubble.user {
+            background: #238636;
+            color: white;
+            align-self: flex-end;
+        }
+
+        .search-card {
+            margin-top: 8px;
+            background: #0d1117;
+            border: 1px solid #388bfd;
+            border-radius: 6px;
+            padding: 8px;
+        }
+
+        .search-card a {
+            color: #58a6ff;
+            text-decoration: none;
+            font-weight: 500;
+            display: flex;
+            align-items: center;
+            gap: 4px;
+        }
+
+        .search-card a:hover {
+            text-decoration: underline;
+        }
+
+        .ai-input-wrapper {
+            padding: 15px;
+            border-top: 1px solid var(--border-color);
+            background: #161b22;
+        }
+
+        .ai-input-form {
+            display: flex;
+            gap: 8px;
+        }
+
+        .ai-input {
+            flex: 1;
+            background: #0d1117;
+            border: 1px solid var(--border-color);
+            padding: 8px 12px;
+            border-radius: 6px;
+            color: var(--text-main);
+            font-size: 13px;
+            outline: none;
+        }
+
+        .ai-input:focus {
+            border-color: #388bfd;
+        }
+
+        .ai-send-btn {
+            background: #21262d;
+            border: 1px solid var(--border-color);
+            color: var(--text-main);
+            padding: 0 12px;
+            border-radius: 6px;
+            cursor: pointer;
+        }
+
+        .ai-send-btn:hover {
+            background: #30363d;
+        }
+    </style>
+</head>
+<body>
+
+    <!-- Light Matrix Header -->
+    <header>
+        <div class="repo-info">
+            <span>📦 web-deploy-fabric</span>
+            <span class="repo-badge">public</span>
+        </div>
+        <div class="light-matrix">
+            <button class="light-btn active" data-light="cyan" onclick="toggleLight('cyan')">
+                <span class="light-indicator"></span> Cyan Ray
+            </button>
+            <button class="light-btn" data-light="magenta" onclick="toggleLight('magenta')">
+                <span class="light-indicator"></span> Magenta Glow
+            </button>
+            <button class="light-btn active" data-light="green" onclick="toggleLight('green')">
+                <span class="light-indicator"></span> Matrix Green
+            </button>
+        </div>
+    </header>
+
+    <!-- Workspace Structure -->
+    <div class="workspace">
+        
+        <!-- Left Side Dashboard Tools -->
+        <div class="editor-container">
+            <div class="editor-toolbar">
+                <select class="lang-select" id="langSelector" onchange="loadTemplate()">
+                    <option value="javascript">JavaScript (ESNext)</option>
+                    <option value="python">Python (Edge Stack)</option>
+                    <option value="html">HTML5 (Adaptive Layout)</option>
+                    <option value="rust">Rust (Wasm Node)</option>
+                </select>
+                <div class="action-btns">
+                    <button class="btn btn-git" onclick="triggerGitHubMock()">Sync GitHub</button>
+                    <button class="btn btn-run" onclick="runCodeEngine()">⚡ RUN ENGINE</button>
+                </div>
+            </div>
+
+            <div class="editor-area-wrapper">
+                <div class="editor-backdrop" id="backdrop"></div>
+                <textarea class="editor-textarea" id="codeEditor" spellcheck="false" oninput="handleEditorInput()"></textarea>
+            </div>
+
+            <!-- Terminal output logging -->
+            <div class="terminal-panel" id="terminal">
+                <div class="terminal-header">
+                    <span>Runtime Execution Logs</span>
+                    <span id="runtime-status">Online</span>
+                </div>
+                <div id="terminal-content">[System]: Fabric initializing... Connected to edge workspace node.</div>
+            </div>
+        </div>
+
+        <!-- Right Side AI Companion Component -->
+        <div class="sidebar-ai">
+            <div class="ai-header">
+                <div class="ai-avatar">🧑‍💻</div>
+                <div class="ai-title">
+                    <h3>CoderJ</h3>
+                    <p>● Ready to search & assist</p>
+                </div>
+            </div>
+
+            <div class="ai-chat-history" id="chatHistory">
+                <div class="chat-bubble ai">
+                    Hey! I am <strong>CoderJ</strong> 🧑‍💻, your specialized AI partner. I am monitoring your workspace. If any coding errors pop up, I'll flag them! You can also type any questions here to query Google instantly.
+                </div>
+            </div>
+
+            <div class="ai-input-wrapper">
+                <form class="ai-input-form" onsubmit="handleAiMessage(event)">
+                    <input type="text" class="ai-input" id="aiPrompt" placeholder="Ask CoderJ or search Google..." autocomplete="off">
+                    <button type="submit" class="ai-send-btn">Ask</button>
+                </form>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        // Preset templates for universal language selection matrix
+        const templates = {
+            javascript: `// JavaScript Environment\ntry {\n    let userStatus = "Active";\n    consl.log("Welcome to your environment"); // Typo built-in to trigger red underline!\n    \n    if(userStatus === "Active") {\n        console.log("System runtime operating flawlessly.");\n    }\n} catch(err) {\n    console.error("Intercepted Exception gracefully: " + err.message);\n}`,
+            python: `# Python Edge Stack Engine\ndef verify_fabric_node():\n    try:\n        nodes = ["alpha", "beta"]\n        prnt("Deploy node active") # Error trigger typo!\n    except Exception as e:\n        print(f"Isolated runtime fault detected: {e}")\n\nverify_fabric_node()`,
+            html: `<!-- HTML5 Responsive Layout Framework -->\n<div class="dashboard-wrap">\n    <header class="masthead">\n        <h1>Continuous Deployment Platform</h1>\n    </header>\n    <main class="viewport">\n        <p>No crash parsing sandbox active.</p>\n    </main>\n</div>`,
+            rust: `// Rust High-Performance WebAssembly Module\nfn main() {\n    let is_deployed = true;\n    \n    // Check logical configuration node\n    if is_deployed {\n        println!("Wasm package mapped successfully into core runtime environment.");\n    }\n}`
+        };
+
+        const codeEditor = document.getElementById('codeEditor');
+        const backdrop = document.getElementById('backdrop');
+        const terminalContent = document.getElementById('terminal-content');
+        const chatHistory = document.getElementById('chatHistory');
+
+        function loadTemplate() {
+            const selected = document.getElementById('langSelector').value;
+            codeEditor.value = templates[selected];
+            handleEditorInput();
+            logTerminal(`[System]: Loaded context profile for language architecture: [${selected.toUpperCase()}]`);
+        }
+
+        // Real-time wavy red error detection parsing algorithm
+        function handleEditorInput() {
+            const text = codeEditor.value;
+            
+            // Highlight explicit spelling errors/broken tokens safely
+            const errorTokens = /\b(consl\.log|prnt|funtion|varable|alrt)\b/g;
+            
+            let highlightedText = text
+                .replace(/&/g, "&amp;")
+                .replace(/</g, "&lt;")
+                .replace(/>/g, "&gt;");
+
+            if (errorTokens.test(highlightedText)) {
+                highlightedText = highlightedText.replace(errorTokens, '<span class="syntax-error">$&</span>');
+                notifyCoderJError(true);
+            } else {
+                notifyCoderJError(false);
+            }
+
+            // Sync text scrolling view
+            backdrop.innerHTML = highlightedText + "\n";
+            backdrop.scrollTop = codeEditor.scrollTop;
+            backdrop.scrollLeft = codeEditor.scrollLeft;
+        }
+
+        // Track state to avoid layout spamming chat bubbles
+        let errorLogged = false;
+        function notifyCoderJError(hasError) {
+            if (hasError && !errorLogged) {
+                errorLogged = true;
+                appendChatBubble("CoderJ", "⚠️ Heads up! I detected broken tokens or syntax structures inside your code file workspace layer. Fix the red wavy lines to avoid deployment exceptions!", "ai");
+            } else if (!hasError) {
+                errorLogged = false;
+            }
+        }
+
+        function logTerminal(message) {
+            const time = new Date().toLocaleTimeString();
+            terminalContent.innerHTML += `\n[${time}] ${message}`;
+            document.getElementById('terminal').scrollTop = document.getElementById('terminal').scrollHeight;
+        }
+
+        function toggleLight(type) {
+            const btn = document.querySelector(`.light-btn[data-light="${type}"]`);
+            btn.classList.toggle('active');
+            const state = btn.classList.contains('active') ? "ON" : "OFF";
+            logTerminal(`[Telemetry]: Luminescence matrix beacon channel [${type.toUpperCase()}] altered state to: ${state}`);
+        }
+
+        function runCodeEngine() {
+            const code = codeEditor.value;
+            logTerminal("[Engine]: Executing runtime simulation checks inside micro-sandbox...");
+            
+            // Protected safe evaluation loop context
+            try {
+                if (code.includes('consl.log') || code.includes('prnt(')) {
+                    throw new TypeError("Uncaught ReferenceError: Target allocation keyword identifier is not fully defined on modern scope execution tree.");
+                }
+                logTerminal("✅ Success: Code block executed inside isolated compilation cycle without core exception crash reports.");
+            } catch (err) {
+                logTerminal(`❌ Crash Intercepted safely: ${err.message}`);
+            }
+        }
+
+        function triggerGitHubMock() {
+            logTerminal("[GitHub Sync]: Staging modifications... writing configuration schemas... updates pushed cleanly to main repository framework tree.");
+            appendChatBubble("CoderJ", "🚀 Repository synchronized cleanly with GitHub! All local components, layout updates, and scripts are ready for deployment actions.", "ai");
+        }
+
+        function appendChatBubble(sender, text, type) {
+            const bubble = document.createElement('div');
+            bubble.className = `chat-bubble \${type}`;
+            bubble.innerHTML = sender === "CoderJ" ? `<strong>🧑‍💻 \${sender}:</strong> \${text}` : text;
+            chatHistory.appendChild(bubble);
+            chatHistory.scrollTop = chatHistory.scrollHeight;
+        }
+
+        function handleAiMessage(e) {
+            e.preventDefault();
+            const input = document.getElementById('aiPrompt');
+            const promptText = input.value.trim();
+            if (!promptText) return;
+
+            appendChatBubble("User", promptText, "user");
+            input.value = '';
+
+            setTimeout(() => {
+                const searchUrl = `https://www.google.com/search?q=\${encodeURIComponent(promptText)}`;
+                const aiResponse = `I processed your inquiry. Let me look up documentation directly on Google! Click the search link button below to explore structural tutorials or verified stack data definitions matching: "<em>\${promptText}</em>"`;
+                
+                const bubble = document.createElement('div');
+                bubble.className = "chat-bubble ai";
+                bubble.innerHTML = `<strong>🧑‍💻 CoderJ:</strong> \${aiResponse}
+                    <div class="search-card">
+                        <a href="\${searchUrl}" target="_blank" rel="noopener">🔍 Search Google for "\${promptText}" ↗</a>
+                    </div>`;
+                chatHistory.appendChild(bubble);
+                chatHistory.scrollTop = chatHistory.scrollHeight;
+            }, 600);
+        }
+
+        // Initialize default loaded layout
+        window.onload = function() {
+            loadTemplate();
+            // Sync scrolled layouts dynamically
+            codeEditor.addEventListener('scroll', () => {
+                backdrop.scrollTop = codeEditor.scrollTop;
+                backdrop.scrollLeft = codeEditor.scrollLeft;
+            });
+        }
+    </script>
+</body>
+</html>
